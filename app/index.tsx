@@ -7,6 +7,7 @@ import {
 } from "react-native-vision-camera";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Animated from "react-native-reanimated";
 
 import {
   Face,
@@ -19,6 +20,11 @@ export default function HomeScreen() {
   const [cameraPermission, setCameraPermission] =
     useState<CameraPermissionStatus>();
   const [isFrontCamera, setIsFrontCamera] = useState(false);
+  const [faces, setFaces] = useState<Face[]>([]);
+  const [cameraLayout, setCameraLayout] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const devices = useCameraDevices();
   const { frontCamera, backCamera } = useMemo(
@@ -35,9 +41,11 @@ export default function HomeScreen() {
   }).current;
   const { detectFaces } = useFaceDetector(faceDetectionOptions);
 
-  const handleDetectedFaces = Worklets.createRunOnJS((faces: Face[]) => {
-    console.log("faces detected", faces);
-  });
+  const handleDetectedFaces = Worklets.createRunOnJS(
+    (detectedFaces: Face[]) => {
+      setFaces(detectedFaces);
+    }
+  );
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
@@ -52,6 +60,20 @@ export default function HomeScreen() {
     // Request camera permissions when component mounts
     Camera.requestCameraPermission().then(setCameraPermission);
   }, []);
+
+  const createAnimatedStyle = (face: Face) => {
+    const scaleX = cameraLayout.width;
+
+    return {
+      position: "absolute",
+      width: (face.bounds.width / 1080) * scaleX,
+      height: (face.bounds.width / 1080) * scaleX * 1.3,
+      borderWidth: 2,
+      borderColor: "#00ff00",
+      borderRadius: (face.bounds.width / 1080) * scaleX,
+      backgroundColor: "transparent",
+    };
+  };
 
   if (cameraPermission !== "granted") {
     return (
@@ -76,7 +98,33 @@ export default function HomeScreen() {
         device={device}
         isActive={true}
         frameProcessor={frameProcessor}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setCameraLayout({ width, height });
+        }}
       />
+      {faces.map((face, index) => {
+        const scaleX = cameraLayout.width;
+        const x = ((face.bounds.x / 1080) * scaleX) / 2;
+        const y = ((face.bounds.y / 1080) * scaleX) / 2 + 100;
+        const faceWidth = ((face.bounds.width / 1080) * scaleX) / 2;
+        const faceHeight = ((face.bounds.height / 1080) * scaleX) / 2;
+        const ovalWidth = ((face.bounds.width / 1080) * scaleX) / 2;
+        const ovalHeight = ovalWidth * 1.3;
+
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              createAnimatedStyle(face),
+              {
+                left: x + faceWidth / 2 - ovalWidth / 2,
+                top: y + faceHeight / 2 - ovalHeight / 2,
+              },
+            ]}
+          />
+        );
+      })}
       <TouchableOpacity
         style={styles.switchButton}
         onPress={() => setIsFrontCamera(!isFrontCamera)}
