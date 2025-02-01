@@ -3,9 +3,17 @@ import {
   CameraPermissionStatus,
   useCameraDevices,
   useFrameProcessor,
+  runAsync,
 } from "react-native-vision-camera";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  Face,
+  useFaceDetector,
+  FaceDetectionOptions,
+} from "react-native-vision-camera-face-detector";
+import { Worklets } from "react-native-worklets-core";
 
 export default function HomeScreen() {
   const [cameraPermission, setCameraPermission] =
@@ -22,13 +30,23 @@ export default function HomeScreen() {
   );
   const device = isFrontCamera ? frontCamera : backCamera;
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    "worklet";
-    console.log(
-      new Date().toISOString(),
-      `Frame: ${frame.width}x${frame.height} (${frame.pixelFormat})`
-    );
-  }, []);
+  const faceDetectionOptions = useRef<FaceDetectionOptions>({
+    // detection options
+  }).current;
+  const { detectFaces } = useFaceDetector(faceDetectionOptions);
+
+  const handleDetectedFaces = Worklets.createRunOnJS((faces: Face[]) => {
+    console.log("faces detected", faces);
+  });
+
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      "worklet";
+      const faces = detectFaces(frame);
+      handleDetectedFaces(faces);
+    },
+    [handleDetectedFaces]
+  );
 
   useEffect(() => {
     // Request camera permissions when component mounts
