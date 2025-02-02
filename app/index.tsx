@@ -5,7 +5,13 @@ import {
   useFrameProcessor,
   runAsync,
 } from "react-native-vision-camera";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Platform,
+} from "react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 
@@ -63,14 +69,18 @@ export default function HomeScreen() {
 
   const createAnimatedStyle = (face: Face) => {
     const scaleX = cameraLayout.width;
+    const baseSize = Platform.select({
+      ios: ((face.bounds.width / 1080) * scaleX) / 2,
+      android: (face.bounds.width / 1080) * scaleX * 2, // Doubled size for Android
+    });
 
     return {
       position: "absolute",
-      width: (face.bounds.width / 1080) * scaleX,
-      height: (face.bounds.width / 1080) * scaleX * 1.3,
+      width: baseSize,
+      height: baseSize * 1.3,
       borderWidth: 2,
       borderColor: "#00ff00",
-      borderRadius: (face.bounds.width / 1080) * scaleX,
+      borderRadius: baseSize,
       backgroundColor: "transparent",
     };
   };
@@ -105,12 +115,37 @@ export default function HomeScreen() {
       />
       {faces.map((face, index) => {
         const scaleX = cameraLayout.width;
-        const x = ((face.bounds.x / 1080) * scaleX) / 2;
-        const y = ((face.bounds.y / 1080) * scaleX) / 2 + 100;
-        const faceWidth = ((face.bounds.width / 1080) * scaleX) / 2;
-        const faceHeight = ((face.bounds.height / 1080) * scaleX) / 2;
-        const ovalWidth = ((face.bounds.width / 1080) * scaleX) / 2;
+        const x = Platform.select({
+          ios: ((face.bounds.x / 1080) * scaleX) / 2,
+          android: (face.bounds.x / 1080) * scaleX * 0.5, // Adjusted for centering
+        });
+        const y = Platform.select({
+          ios: ((face.bounds.y / 1080) * scaleX) / 2 + 100,
+          android: (face.bounds.y / 1080) * scaleX * 0.5, // Adjusted for centering
+        });
+        const faceWidth = Platform.select({
+          ios: ((face.bounds.width / 1080) * scaleX) / 2,
+          android: (face.bounds.width / 1080) * scaleX * 2,
+        });
+        const faceHeight = Platform.select({
+          ios: ((face.bounds.height / 1080) * scaleX) / 2,
+          android: (face.bounds.height / 1080) * scaleX * 2,
+        });
+        const ovalWidth = Platform.select({
+          ios: ((face.bounds.width / 1080) * scaleX) / 2,
+          android: (face.bounds.width / 1080) * scaleX * 2,
+        });
         const ovalHeight = ovalWidth * 1.3;
+
+        // Add some console.log to help debug positioning
+        if (Platform.OS === "android") {
+          console.log("Face bounds:", face.bounds);
+          console.log("Calculated position:", { x, y });
+          console.log("Screen size:", {
+            width: cameraLayout.width,
+            height: cameraLayout.height,
+          });
+        }
 
         return (
           <Animated.View
